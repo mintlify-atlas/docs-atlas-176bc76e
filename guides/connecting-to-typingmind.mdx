@@ -1,0 +1,152 @@
+---
+title: Connecting to TypingMind
+description: Learn how to connect MCP Connector to TypingMind and verify your integration
+---
+
+Once you have MCP Connector running, you need to connect it to TypingMind to make your MCP servers available in the AI chat interface.
+
+## Prerequisites
+
+Before connecting to TypingMind, ensure you have:
+
+- MCP Connector running (locally or on a remote server)
+- Your authentication token
+- The server address and port number
+
+## Connection steps
+
+<Steps>
+  <Step title="Navigate to TypingMind MCP integration page">
+    Go to [www.typingmind.com/mcp](https://www.typingmind.com/mcp) to access the MCP integration settings.
+  </Step>
+
+  <Step title="Prepare your server address">
+    Your server address format depends on where MCP Connector is running:
+
+    <Tabs>
+      <Tab title="Local device">
+        If you're running MCP Connector on your local computer:
+
+        ```
+        http://localhost:50880
+        ```
+
+        <Note>
+          The default port is `50880`. If you specified a different port using the `PORT` environment variable, use that port instead.
+        </Note>
+      </Tab>
+
+      <Tab title="Remote server">
+        If you're running MCP Connector on a remote server:
+
+        ```
+        http://your-server-ip:50880
+        ```
+
+        Replace `your-server-ip` with your server's public IP address or domain name.
+
+        <Note>
+          If you enabled HTTPS, use `https://` instead of `http://`.
+        </Note>
+      </Tab>
+
+      <Tab title="Custom port">
+        If you specified a custom port:
+
+        ```bash
+        PORT=8080 npx @typingmind/mcp@latest <auth-token>
+        ```
+
+        Use that port in your server address:
+
+        ```
+        http://localhost:8080
+        ```
+      </Tab>
+    </Tabs>
+  </Step>
+
+  <Step title="Enter your credentials">
+    On the TypingMind MCP integration page:
+
+    1. Paste your **server address** in the server URL field
+    2. Paste your **authentication token** in the auth token field
+
+    <Note>
+      The authentication token is the same token you used when starting MCP Connector. If you provided it via the `MCP_AUTH_TOKEN` environment variable, use that value.
+    </Note>
+  </Step>
+
+  <Step title="Test the connection">
+    Click the **Connect** or **Test Connection** button to verify that TypingMind can communicate with your MCP Connector server.
+
+    A successful connection will show:
+    - Connected status indicator
+    - List of available MCP servers (if any are running)
+    - Available tools from each server
+  </Step>
+</Steps>
+
+## Verify your connection
+
+You can verify that the connection is working by checking the health endpoint:
+
+<CodeGroup>
+```bash cURL
+curl -X GET http://localhost:50880/ping \
+  -H "Authorization: Bearer <your-auth-token>"
+```
+
+```bash Local server
+curl -X GET http://localhost:50880/ping \
+  -H "Authorization: Bearer my-secret-token"
+```
+
+```bash Remote server
+curl -X GET http://192.168.1.100:50880/ping \
+  -H "Authorization: Bearer my-secret-token"
+```
+</CodeGroup>
+
+**Expected response:**
+
+```json
+{
+  "status": "ok"
+}
+```
+
+## Common issues
+
+### Connection refused
+
+If you see a "connection refused" error:
+
+- Verify MCP Connector is running
+- Check that the port is correct
+- Ensure your firewall allows connections on the specified port
+- For remote servers, verify the server's public IP address is correct
+
+### Authentication failed
+
+If authentication fails:
+
+- Double-check your authentication token matches exactly
+- Ensure there are no extra spaces or characters
+- Verify the `Authorization` header format: `Bearer <token>`
+
+### CORS errors
+
+MCP Connector has CORS enabled by default. If you encounter CORS errors:
+
+- Verify you're using the correct protocol (`http://` or `https://`)
+- Check browser console for specific CORS error messages
+- Ensure your server is accessible from the TypingMind domain
+
+## Next steps
+
+After successfully connecting to TypingMind:
+
+- [Start managing your MCP servers](/guides/managing-mcp-servers)
+- [Configure MCP server clients](/configuration/environment-variables)
+- [Explore available API endpoints](/api/overview)

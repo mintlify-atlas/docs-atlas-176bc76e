@@ -1,0 +1,135 @@
+---
+title: API overview
+description: Learn how to authenticate and interact with the MCP Connector REST API
+---
+
+The MCP Connector REST API provides programmatic access to manage MCP clients and execute tools. All endpoints require authentication and support JSON request/response formats.
+
+## Base URL
+
+The API runs on a configurable port with automatic port discovery:
+
+- **Default ports**: 50880 or 50881 (automatically selected if available)
+- **Custom port**: Set via `PORT` environment variable
+- **Host**: `0.0.0.0` (configurable via `HOSTNAME` environment variable)
+- **Protocol**: HTTP (default) or HTTPS (when `CERTFILE` and `KEYFILE` are provided)
+
+```bash
+# HTTP (default)
+http://localhost:50880
+
+# HTTPS (with certificates)
+https://localhost:50880
+```
+
+## Authentication
+
+All API endpoints require Bearer token authentication. Include your authentication token in the `Authorization` header of every request.
+
+### Authentication header format
+
+```bash
+Authorization: Bearer YOUR_AUTH_TOKEN
+```
+
+### Authentication errors
+
+The API returns specific error messages for authentication failures:
+
+<ResponseField name="error" type="string">
+  Error message describing the authentication failure
+</ResponseField>
+
+**Common authentication errors:**
+
+- `401 Unauthorized` - Missing authorization header:
+  ```json
+  { "error": "Authorization header is required" }
+  ```
+
+- `401 Unauthorized` - Incorrect authorization type:
+  ```json
+  { "error": "Authorization type must be Bearer" }
+  ```
+
+- `401 Unauthorized` - Invalid token:
+  ```json
+  { "error": "Invalid authentication token" }
+  ```
+
+## Request format
+
+All `POST` requests must include a `Content-Type: application/json` header and send data as JSON in the request body.
+
+```bash
+curl -X POST http://localhost:50880/start \
+  -H "Authorization: Bearer YOUR_AUTH_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"mcpServers": {...}}'
+```
+
+## Response format
+
+All responses are returned as JSON with appropriate HTTP status codes.
+
+### Success responses
+
+- `200 OK` - Request succeeded (GET, DELETE, restart)
+- `201 Created` - Resource created successfully (POST /start)
+- `204 No Content` - Successful OPTIONS request (CORS preflight)
+
+### Error responses
+
+- `400 Bad Request` - Invalid request parameters or partial failures
+- `401 Unauthorized` - Authentication failed
+- `404 Not Found` - Client not found
+- `500 Internal Server Error` - Server-side error
+
+**Error response structure:**
+
+```json
+{
+  "error": "Error message",
+  "details": "Additional error details (optional)"
+}
+```
+
+## CORS support
+
+The API includes CORS middleware, allowing cross-origin requests from web applications. All origins are permitted by default.
+
+## Timeouts
+
+Tool execution has a configurable timeout:
+
+- **Default**: 60 seconds (60,000ms)
+- **Custom**: Set via `TIMEOUT` environment variable (in milliseconds)
+
+```bash
+# Set 2-minute timeout
+export TIMEOUT=120000
+```
+
+If a tool call exceeds the timeout, it will fail with an error.
+
+## Rate limits
+
+The API does not currently implement rate limiting. Consider implementing rate limiting at the reverse proxy or application level for production deployments.
+
+## Next steps
+
+<Card title="Health check" icon="heart-pulse" href="/api/health">
+  Verify API availability with the ping endpoint
+</Card>
+
+<Card title="Client management" icon="server" href="/api/clients">
+  Start, restart, list, and delete MCP clients
+</Card>
+
+<Card title="Tool operations" icon="wrench" href="/api/tools">
+  List and execute tools from MCP clients
+</Card>
+
+<Card title="MCP Connect" icon="plug" href="/api/mcp-connect">
+  Proxy requests to remote MCP servers
+</Card>

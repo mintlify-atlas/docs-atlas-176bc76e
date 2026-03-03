@@ -1,0 +1,437 @@
+---
+title: Managing MCP servers
+description: Learn how to start, configure, and manage MCP server clients through the REST API
+---
+
+MCP Connector allows you to run and manage multiple MCP server clients simultaneously. Each client can be a local stdio-based server or a remote HTTP/SSE server.
+
+## Starting MCP clients
+
+Use the `/start` endpoint to initialize one or more MCP clients. The endpoint accepts a configuration object following the Claude Desktop config format.
+
+### Configuration format
+
+The request body should contain an `mcpServers` object where each key is a unique client ID and the value is the server configuration:
+
+```json
+{
+  "mcpServers": {
+    "client-id": {
+      // Configuration options
+    }
+  }
+}
+```
+
+### Local servers (stdio)
+
+For local MCP servers that use standard input/output:
+
+<CodeGroup>
+```bash cURL
+curl -X POST http://localhost:50880/start \
+  -H "Authorization: Bearer <auth-token>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "mcpServers": {
+      "filesystem": {
+        "command": "npx",
+        "args": ["-y", "@modelcontextprotocol/server-filesystem", "/tmp"],
+        "env": {}
+      }
+    }
+  }'
+```
+
+```bash With environment variables
+curl -X POST http://localhost:50880/start \
+  -H "Authorization: Bearer <auth-token>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "mcpServers": {
+      "database": {
+        "command": "node",
+        "args": ["/path/to/server.js"],
+        "env": {
+          "DB_HOST": "localhost",
+          "DB_PORT": "5432"
+        }
+      }
+    }
+  }'
+```
+</CodeGroup>
+
+**Configuration options:**
+
+- `command` (required): The executable command to run
+- `args` (optional): Array of command-line arguments
+- `env` (optional): Object containing environment variables
+
+**Response:**
+
+```json
+{
+  "message": "All MCP clients started successfully",
+  "clients": [
+    {
+      "id": "filesystem",
+      "message": "MCP client started successfully"
+    }
+  ]
+}
+```
+
+### Remote servers (HTTP/SSE)
+
+For remote MCP servers accessed via HTTP or Server-Sent Events:
+
+<CodeGroup>
+```bash cURL
+curl -X POST http://localhost:50880/start \
+  -H "Authorization: Bearer <auth-token>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "mcpServers": {
+      "remote-server": {
+        "url": "https://example.com/mcp"
+      }
+    }
+  }'
+```
+
+```bash Multiple servers
+curl -X POST http://localhost:50880/start \
+  -H "Authorization: Bearer <auth-token>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "mcpServers": {
+      "remote-api": {
+        "url": "https://api.example.com/mcp"
+      },
+      "local-tools": {
+        "command": "npx",
+        "args": ["-y", "@modelcontextprotocol/server-memory"]
+      }
+    }
+  }'
+```
+</CodeGroup>
+
+**Configuration options:**
+
+- `url` (required): The HTTP/SSE endpoint URL
+
+<Note>
+  MCP Connector automatically tries Streamable HTTP transport first, then falls back to SSE transport if needed.
+</Note>
+
+### Starting multiple clients
+
+You can start multiple MCP clients in a single request:
+
+```bash
+curl -X POST http://localhost:50880/start \
+  -H "Authorization: Bearer <auth-token>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "mcpServers": {
+      "filesystem": {
+        "command": "npx",
+        "args": ["-y", "@modelcontextprotocol/server-filesystem", "/home/user/documents"]
+      },
+      "memory": {
+        "command": "npx",
+        "args": ["-y", "@modelcontextprotocol/server-memory"]
+      },
+      "remote-api": {
+        "url": "https://api.example.com/mcp"
+      }
+    }
+  }'
+```
+
+**Partial success response:**
+
+```json
+{
+  "message": "Some MCP clients failed to start",
+  "success": [
+    {
+      "id": "filesystem",
+      "message": "MCP client started successfully"
+    },
+    {
+      "id": "memory",
+      "message": "MCP client started successfully"
+    }
+  ],
+  "errors": [
+    {
+      "id": "remote-api",
+      "error": "Failed to initialize: Connection refused"
+    }
+  ]
+}
+```
+
+## Viewing active clients
+
+List all running MCP clients and their available tools:
+
+<Steps>
+  <Step title="Get all clients">
+    <CodeGroup>
+    ```bash cURL
+    curl -X GET http://localhost:50880/clients \
+      -H "Authorization: Bearer <auth-token>"
+    ```
+    </CodeGroup>
+
+    **Response:**
+
+    ```json
+    [
+      {
+        "id": "filesystem",
+        "command": "npx",
+        "args": ["-y", "@modelcontextprotocol/server-filesystem", "/tmp"],
+        "createdAt": "2026-03-03T10:30:00.000Z",
+        "tools": [
+          "read_file",
+          "write_file",
+          "list_directory",
+          "create_directory"
+        ]
+      },
+      {
+        "id": "memory",
+        "command": "npx",
+        "args": ["-y", "@modelcontextprotocol/server-memory"],
+        "createdAt": "2026-03-03T10:31:00.000Z",
+        "tools": [
+          "store_memory",
+          "retrieve_memory"
+        ]
+      }
+    ]
+    ```
+  </Step>
+
+  <Step title="Get a specific client">
+    <CodeGroup>
+    ```bash cURL
+    curl -X GET http://localhost:50880/clients/filesystem \
+      -H "Authorization: Bearer <auth-token>"
+    ```
+    </CodeGroup>
+
+    **Response:**
+
+    ```json
+    {
+      "id": "filesystem",
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-filesystem", "/tmp"],
+      "createdAt": "2026-03-03T10:30:00.000Z"
+    }
+    ```
+  </Step>
+
+  <Step title="List available tools">
+    Get detailed information about all tools available from a specific client:
+
+    <CodeGroup>
+    ```bash cURL
+    curl -X GET http://localhost:50880/clients/filesystem/tools \
+      -H "Authorization: Bearer <auth-token>"
+    ```
+    </CodeGroup>
+
+    **Response:**
+
+    ```json
+    [
+      {
+        "name": "read_file",
+        "description": "Read the contents of a file",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "path": {
+              "type": "string",
+              "description": "Path to the file to read"
+            }
+          },
+          "required": ["path"]
+        }
+      },
+      {
+        "name": "write_file",
+        "description": "Write content to a file",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "path": {
+              "type": "string",
+              "description": "Path to the file to write"
+            },
+            "content": {
+              "type": "string",
+              "description": "Content to write to the file"
+            }
+          },
+          "required": ["path", "content"]
+        }
+      }
+    ]
+    ```
+  </Step>
+</Steps>
+
+## Restarting clients
+
+Restart a specific MCP client with its original configuration:
+
+```bash
+curl -X POST http://localhost:50880/restart/filesystem \
+  -H "Authorization: Bearer <auth-token>"
+```
+
+**Response:**
+
+```json
+{
+  "message": "Client filesystem restarted successfully",
+  "client": {
+    "id": "filesystem",
+    "message": "MCP client started successfully"
+  }
+}
+```
+
+<Note>
+  Restarting a client preserves its original configuration. The client is closed and then started again with the same settings.
+</Note>
+
+## Updating client configuration
+
+To update a client's configuration, call `/start` with the same client ID but different configuration:
+
+```bash
+curl -X POST http://localhost:50880/start \
+  -H "Authorization: Bearer <auth-token>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "mcpServers": {
+      "filesystem": {
+        "command": "npx",
+        "args": ["-y", "@modelcontextprotocol/server-filesystem", "/home/user/documents"],
+        "env": {
+          "DEBUG": "true"
+        }
+      }
+    }
+  }'
+```
+
+<Note>
+  If the configuration has changed, MCP Connector automatically restarts the client with the new settings. If the configuration is identical, the request is ignored.
+</Note>
+
+## Stopping and deleting clients
+
+Remove a client and free up its resources:
+
+```bash
+curl -X DELETE http://localhost:50880/clients/filesystem \
+  -H "Authorization: Bearer <auth-token>"
+```
+
+**Response:**
+
+```json
+{
+  "message": "Client deleted successfully"
+}
+```
+
+<Note>
+  Deleting a client gracefully closes the connection and removes it from the active clients list. You can start it again later using the `/start` endpoint.
+</Note>
+
+## Client lifecycle
+
+<Steps>
+  <Step title="Start">
+    Create a new client with `/start` endpoint
+  </Step>
+
+  <Step title="Run">
+    Client is active and available for tool calls
+  </Step>
+
+  <Step title="Update (optional)">
+    Change configuration by calling `/start` again with the same ID
+  </Step>
+
+  <Step title="Restart (optional)">
+    Restart with original configuration using `/restart/:id`
+  </Step>
+
+  <Step title="Stop">
+    Delete the client using `DELETE /clients/:id`
+  </Step>
+</Steps>
+
+## Best practices
+
+### Use descriptive client IDs
+
+Choose meaningful IDs that describe the server's purpose:
+
+```json
+{
+  "mcpServers": {
+    "project-filesystem": { ... },
+    "database-tools": { ... },
+    "api-connector": { ... }
+  }
+}
+```
+
+### Handle errors gracefully
+
+Check the response for partial failures when starting multiple clients:
+
+```json
+{
+  "message": "Some MCP clients failed to start",
+  "success": [...],
+  "errors": [...]
+}
+```
+
+### Monitor client health
+
+Regularly check `/clients` to ensure all expected clients are running:
+
+```bash
+curl -X GET http://localhost:50880/clients \
+  -H "Authorization: Bearer <auth-token>" | jq 'length'
+```
+
+### Clean up unused clients
+
+Delete clients you're no longer using to free up system resources:
+
+```bash
+curl -X DELETE http://localhost:50880/clients/old-client \
+  -H "Authorization: Bearer <auth-token>"
+```
+
+## Next steps
+
+- [Learn about calling tools](/api/tools)
+- [Configure tool call timeout](/configuration/environment-variables)
+- [Explore API reference](/api/overview)

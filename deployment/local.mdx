@@ -1,0 +1,152 @@
+---
+title: Running locally
+description: Deploy MCP Connector on your local device using npx
+---
+
+You can quickly start MCP Connector on your local machine without any installation using `npx`. This is the fastest way to get started with MCP Connector.
+
+## Quick start
+
+Run MCP Connector with a single command:
+
+```bash
+npx @typingmind/mcp@latest <auth-token>
+```
+
+Replace `<auth-token>` with your authentication token provided by TypingMind.
+
+<Note>
+  Keep the process running in your terminal while you use TypingMind. Closing the terminal or stopping the process will disconnect your MCP servers.
+</Note>
+
+## Using environment variables
+
+You can provide the authentication token via an environment variable instead of a command-line argument:
+
+```bash
+MCP_AUTH_TOKEN=<auth-token> npx @typingmind/mcp@latest
+```
+
+This method is useful when you want to avoid exposing the token in your shell history.
+
+## Port configuration
+
+By default, MCP Connector will use one of these ports:
+
+- `50880` (primary)
+- `50881` (fallback)
+
+The server automatically selects the first available port. Make sure at least one of these ports is not in use.
+
+### Using a custom port
+
+To specify a different port, use the `PORT` environment variable:
+
+```bash
+PORT=8080 npx @typingmind/mcp@latest <auth-token>
+```
+
+<Note>
+  When using a custom port, remember to update the server address in your TypingMind configuration to match the new port.
+</Note>
+
+## Enabling HTTPS
+
+For secure connections, you can enable HTTPS by providing SSL certificate files:
+
+<Steps>
+  <Step title="Prepare SSL certificates">
+    Ensure you have both a certificate file (`.crt`) and a private key file (`.key`).
+  </Step>
+  
+  <Step title="Set environment variables">
+    Use `CERTFILE` and `KEYFILE` to specify the paths to your certificate files:
+    
+    ```bash
+    CERTFILE=./path/to/certificate.crt KEYFILE=./path/to/privatekey.key npx @typingmind/mcp@latest <auth-token>
+    ```
+  </Step>
+  
+  <Step title="Verify HTTPS mode">
+    When both variables are set, the server will automatically use HTTPS instead of HTTP. Check the console output to confirm the server is running in HTTPS mode.
+  </Step>
+</Steps>
+
+<Warning>
+  The default HTTPS port is `50881` when using SSL certificates. Make sure this port is available and accessible.
+</Warning>
+
+## Configuring tool timeout
+
+You can set a custom timeout for tool calls using the `TIMEOUT` environment variable (value in milliseconds):
+
+<CodeGroup>
+```bash Basic timeout
+# Set timeout to 2 minutes (120000ms)
+TIMEOUT=120000 npx @typingmind/mcp@latest <auth-token>
+```
+
+```bash Combined with auth token variable
+TIMEOUT=120000 MCP_AUTH_TOKEN=<auth-token> npx @typingmind/mcp@latest
+```
+
+```bash With HTTPS
+TIMEOUT=120000 CERTFILE=./cert.crt KEYFILE=./key.key MCP_AUTH_TOKEN=<auth-token> npx @typingmind/mcp@latest
+```
+</CodeGroup>
+
+<Note>
+  The default timeout is 60 seconds (60000ms) if not specified.
+</Note>
+
+## Keeping the process running
+
+When running locally, you need to keep the terminal window open for MCP Connector to continue running. Here are some options:
+
+### Using a dedicated terminal window
+
+Simply keep the terminal window open while using TypingMind. This is the simplest approach for development and testing.
+
+### Using terminal multiplexers
+
+For more advanced usage, consider using `screen` or `tmux` to run the process in a detached session:
+
+<CodeGroup>
+```bash Using screen
+screen -S mcp-connector
+npx @typingmind/mcp@latest <auth-token>
+# Press Ctrl+A, then D to detach
+# Reattach with: screen -r mcp-connector
+```
+
+```bash Using tmux
+tmux new -s mcp-connector
+npx @typingmind/mcp@latest <auth-token>
+# Press Ctrl+B, then D to detach
+# Reattach with: tmux attach -t mcp-connector
+```
+</CodeGroup>
+
+## Example output
+
+When you start MCP Connector successfully, you should see output similar to this:
+
+```
+MCP Connector v1.3.1
+Server running on http://localhost:50880
+Auth token: ********************************
+Ready to accept connections from TypingMind
+```
+
+## Next steps
+
+After starting MCP Connector locally:
+
+1. Note the server address (e.g., `http://localhost:50880`)
+2. Go to [www.typingmind.com/mcp](https://www.typingmind.com/mcp)
+3. Enter your server address and authentication token
+4. Start using MCP tools in TypingMind
+
+<Note>
+  For production deployments or persistent running, consider deploying on a [remote server](/deployment/server) or using [Docker](/deployment/docker) instead.
+</Note>

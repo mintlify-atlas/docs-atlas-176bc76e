@@ -1,0 +1,121 @@
+---
+title: Introduction
+description: Run and manage multiple Model Context Protocol (MCP) servers for TypingMind
+---
+
+## What is MCP Connector?
+
+MCP Connector is a lightweight server that runs and manages multiple Model Context Protocol (MCP) servers for [TypingMind](https://www.typingmind.com/mcp). It provides a simple REST API that lets you connect your local or remote MCP servers to TypingMind, enabling powerful AI integrations through custom tools and resources.
+
+Think of MCP Connector as a bridge between TypingMind and your MCP servers. It handles all the complexity of running multiple MCP servers, managing their lifecycle, and exposing their capabilities through a unified API.
+
+## Get started
+
+<CardGroup cols={2}>
+  <Card
+    title="Quick start"
+    icon="bolt"
+    href="/quickstart"
+  >
+    Get MCP Connector running in under 5 minutes
+  </Card>
+  <Card
+    title="REST API reference"
+    icon="code"
+    href="/api/overview"
+  >
+    Explore the complete API endpoints
+  </Card>
+  <Card
+    title="Configuration"
+    icon="gear"
+    href="/configuration/authentication"
+  >
+    Learn how to configure MCP servers and environment variables
+  </Card>
+  <Card
+    title="Deployment"
+    icon="server"
+    href="/deployment/local"
+  >
+    Deploy MCP Connector to a remote server or Docker
+  </Card>
+</CardGroup>
+
+## Key features
+
+### Multiple MCP server support
+
+Run and manage multiple MCP servers simultaneously. Each server runs independently with its own configuration, environment variables, and lifecycle management.
+
+```bash
+# Start the connector with your auth token
+npx @typingmind/mcp@latest your-auth-token
+```
+
+### Unified REST API
+
+Access all your MCP servers through a single REST API. MCP Connector handles authentication, request routing, and response formatting so you can focus on building your AI workflows.
+
+- Start and stop MCP clients dynamically
+- List available tools across all servers
+- Call tools with automatic timeout handling
+- Health check and monitoring endpoints
+
+### Flexible deployment options
+
+Deploy MCP Connector wherever you need it:
+
+- **Local development**: Run with `npx` for instant setup
+- **Remote servers**: Deploy to any Node.js-capable server
+- **Docker containers**: Use the included Dockerfile for containerized deployments
+- **HTTPS support**: Enable secure connections with custom SSL certificates
+
+### Transport protocol support
+
+MCP Connector supports multiple transport protocols for maximum compatibility:
+
+- **Stdio transport**: For local command-line MCP servers
+- **Streamable HTTP transport**: For modern HTTP-based MCP servers
+- **SSE transport**: Automatic fallback for legacy MCP servers
+
+### Built-in security
+
+Every API endpoint requires authentication using Bearer token authentication. Your auth token is provided by TypingMind and ensures only authorized clients can access your MCP servers.
+
+```bash
+curl -X GET http://localhost:50880/ping \
+  -H "Authorization: Bearer your-auth-token"
+```
+
+## How it works
+
+1. **Start MCP Connector** with your TypingMind auth token
+2. **Configure MCP servers** by sending a POST request to `/start` with your server configurations
+3. **TypingMind connects** to your MCP Connector instance
+4. **Tools become available** in TypingMind for AI assistants to use
+
+<Note>
+MCP Connector must remain running for TypingMind to access your MCP servers. Use process managers like `pm2` or run in Docker for persistent operation.
+</Note>
+
+## System requirements
+
+- **Node.js**: Version 14.0.0 or later
+- **Operating system**: Linux, macOS, or Windows
+- **Network**: Available port for the REST API (default: 50880 or 50881)
+- **Memory**: Varies based on the number and complexity of MCP servers
+
+## Use cases
+
+- **File system access**: Let AI assistants read and write files on your computer
+- **Database queries**: Connect to local or remote databases
+- **API integrations**: Access third-party APIs through MCP tools
+- **Custom tools**: Build specialized tools for your specific workflows
+- **Remote resources**: Access resources on servers or cloud services
+
+## Next steps
+
+<Card title="Quick start guide" icon="rocket" href="/quickstart">
+  Follow our step-by-step guide to get MCP Connector running in minutes
+</Card>

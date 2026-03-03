@@ -1,0 +1,143 @@
+---
+title: Authentication
+description: Configure authentication tokens for secure access to your MCP Connector server
+---
+
+MCP Connector uses Bearer token authentication to secure all API endpoints. An authentication token is required to start the server and must be included in all HTTP requests.
+
+## How authentication works
+
+The MCP Connector implements Bearer token authentication through middleware that validates incoming requests:
+
+1. All API endpoints require an `Authorization` header
+2. The header must use the `Bearer` token type
+3. The token must match the one provided when starting the server
+4. Invalid or missing tokens return a 401 Unauthorized response
+
+From `lib/auth.js:6-29`, the authentication middleware checks:
+- Authorization header is present
+- Token type is "Bearer"
+- Token value matches the configured token
+
+## Providing the authentication token
+
+You can provide the authentication token in two ways:
+
+### Command line argument
+
+Pass the token as the first argument when starting the server:
+
+```bash
+npx @typingmind/mcp@latest your-secret-token-here
+```
+
+This method is simple for quick testing but exposes the token in your shell history.
+
+### Environment variable
+
+Set the `MCP_AUTH_TOKEN` environment variable:
+
+```bash
+MCP_AUTH_TOKEN=your-secret-token-here npx @typingmind/mcp@latest
+```
+
+The server checks for the command line argument first, then falls back to the environment variable (see `bin/index.js:7`).
+
+<Note>
+If neither method provides a token, the server will exit with an error message.
+</Note>
+
+## Using the token in API requests
+
+Once the server is running, include the token in all API requests using the `Authorization` header:
+
+```bash
+curl http://localhost:50880/ping \
+  -H "Authorization: Bearer your-secret-token-here"
+```
+
+```javascript
+// JavaScript example
+fetch('http://localhost:50880/clients', {
+  headers: {
+    'Authorization': 'Bearer your-secret-token-here',
+    'Content-Type': 'application/json'
+  }
+})
+```
+
+## Security best practices
+
+<Warning>
+Treat your authentication token like a password. Anyone with access to the token can control your MCP servers and execute tools.
+</Warning>
+
+### Generate a strong token
+
+Use a cryptographically secure random string for your token:
+
+```bash
+# Generate a random token (Linux/macOS)
+openssl rand -base64 32
+
+# Or using Node.js
+node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
+```
+
+### Store tokens securely
+
+- **Don't hardcode tokens** in scripts or configuration files committed to version control
+- **Use environment variables** or secret management tools
+- **Restrict file permissions** on any files containing tokens
+- **Rotate tokens regularly** if using in production environments
+
+### Use HTTPS in production
+
+When running MCP Connector on a remote server or over a network:
+
+- Always use HTTPS to prevent token interception
+- See [HTTPS Configuration](/configuration/https) for setup instructions
+- Bearer tokens sent over unencrypted HTTP can be intercepted
+
+### Docker considerations
+
+When running in Docker, pass the token via environment variable:
+
+```bash
+docker run -d \
+  -p 50880:50880 \
+  -e MCP_AUTH_TOKEN=your-secret-token-here \
+  mcp-connector
+```
+
+<Info>
+For Docker deployments, consider using Docker secrets or environment files instead of passing tokens directly in the command line.
+</Info>
+
+## Troubleshooting
+
+### 401 Unauthorized errors
+
+If you receive 401 errors when making API requests:
+
+1. Verify the `Authorization` header is included
+2. Check the token type is `Bearer` (case-sensitive)
+3. Ensure the token matches exactly (no extra spaces or newlines)
+4. Confirm the server started with the same token
+
+### Token not recognized
+
+If the server doesn't recognize your environment variable:
+
+1. Check the variable name is exactly `MCP_AUTH_TOKEN`
+2. Ensure the variable is exported in your shell
+3. Verify the variable is set before running the command
+
+```bash
+# Verify the variable is set
+echo $MCP_AUTH_TOKEN
+
+# Export if needed
+export MCP_AUTH_TOKEN=your-token
+npx @typingmind/mcp@latest
+```

@@ -1,0 +1,408 @@
+---
+title: Running on a server
+description: Deploy MCP Connector on a remote server for persistent availability
+---
+
+Running MCP Connector on a remote server allows you to keep your MCP servers available 24/7 without keeping your local machine running.
+
+## Prerequisites
+
+Before deploying to a server, ensure you have:
+
+- A remote server with SSH access (Linux or macOS)
+- Node.js version 14.0.0 or later installed
+- Network access to ports 50880 or 50881 (or your custom port)
+- Your TypingMind authentication token
+
+### Installing Node.js
+
+If Node.js is not installed on your server, install it using one of these methods:
+
+<CodeGroup>
+```bash Ubuntu/Debian
+curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+sudo apt-get install -y nodejs
+```
+
+```bash CentOS/RHEL
+curl -fsSL https://rpm.nodesource.com/setup_20.x | sudo bash -
+sudo yum install -y nodejs
+```
+
+```bash Using nvm (recommended)
+curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.0/install.sh | bash
+source ~/.bashrc
+nvm install 20
+nvm use 20
+```
+</CodeGroup>
+
+Verify the installation:
+
+```bash
+node --version
+# Should output: v20.x.x or higher
+```
+
+## Basic deployment
+
+<Steps>
+  <Step title="Connect to your server">
+    SSH into your remote server:
+    
+    ```bash
+    ssh user@your-server-ip
+    ```
+  </Step>
+  
+  <Step title="Run MCP Connector">
+    Start the server using `npx`:
+    
+    ```bash
+    npx @typingmind/mcp@latest <auth-token>
+    ```
+    
+    Or using environment variables:
+    
+    ```bash
+    MCP_AUTH_TOKEN=<auth-token> npx @typingmind/mcp@latest
+    ```
+  </Step>
+  
+  <Step title="Verify the server is running">
+    You should see output confirming the server is running:
+    
+    ```
+    MCP Connector v1.3.1
+    Server running on http://0.0.0.0:50880
+    Auth token: ********************************
+    Ready to accept connections from TypingMind
+    ```
+  </Step>
+</Steps>
+
+<Warning>
+  Running the server directly in your SSH session will stop the process when you disconnect. Use a process manager for persistent deployment (see below).
+</Warning>
+
+## Running with HTTPS
+
+For production deployments, enable HTTPS to secure the connection:
+
+<Steps>
+  <Step title="Obtain SSL certificates">
+    Get SSL certificates for your domain using Let's Encrypt or your certificate provider:
+    
+    ```bash
+    # Example using certbot
+    sudo certbot certonly --standalone -d your-domain.com
+    ```
+  </Step>
+  
+  <Step title="Run with certificate files">
+    Start the server with SSL certificates:
+    
+    ```bash
+    CERTFILE=/etc/letsencrypt/live/your-domain.com/fullchain.pem \
+    KEYFILE=/etc/letsencrypt/live/your-domain.com/privkey.pem \
+    npx @typingmind/mcp@latest <auth-token>
+    ```
+  </Step>
+</Steps>
+
+## Persistent deployment with process managers
+
+To keep MCP Connector running after you close your SSH session, use a process manager.
+
+### Using pm2 (recommended)
+
+pm2 is a production-ready process manager for Node.js applications with built-in monitoring and automatic restarts.
+
+<Steps>
+  <Step title="Install pm2 globally">
+    ```bash
+    npm install -g pm2
+    ```
+  </Step>
+  
+  <Step title="Start MCP Connector with pm2">
+    <CodeGroup>
+    ```bash Basic HTTP
+    pm2 start npx --name mcp-connector -- @typingmind/mcp@latest <auth-token>
+    ```
+    
+    ```bash With environment variables
+    pm2 start npx --name mcp-connector \
+      -e MCP_AUTH_TOKEN=<auth-token> \
+      -e TIMEOUT=120000 \
+      -- @typingmind/mcp@latest
+    ```
+    
+    ```bash With HTTPS
+    pm2 start npx --name mcp-connector \
+      -e MCP_AUTH_TOKEN=<auth-token> \
+      -e CERTFILE=/path/to/certificate.crt \
+      -e KEYFILE=/path/to/privatekey.key \
+      -- @typingmind/mcp@latest
+    ```
+    </CodeGroup>
+  </Step>
+  
+  <Step title="Manage the process">
+    <CodeGroup>
+    ```bash View status
+    pm2 status
+    ```
+    
+    ```bash View logs
+    pm2 logs mcp-connector
+    ```
+    
+    ```bash Restart the server
+    pm2 restart mcp-connector
+    ```
+    
+    ```bash Stop the server
+    pm2 stop mcp-connector
+    ```
+    
+    ```bash Remove from pm2
+    pm2 delete mcp-connector
+    ```
+    </CodeGroup>
+  </Step>
+  
+  <Step title="Enable auto-start on system reboot">
+    Configure pm2 to start on boot:
+    
+    ```bash
+    pm2 startup
+    pm2 save
+    ```
+    
+    Follow the instructions printed by `pm2 startup` to complete the setup.
+  </Step>
+</Steps>
+
+### Using screen
+
+screen is a simple terminal multiplexer that allows you to detach sessions:
+
+<Steps>
+  <Step title="Install screen">
+    ```bash
+    # Ubuntu/Debian
+    sudo apt-get install screen
+    
+    # CentOS/RHEL
+    sudo yum install screen
+    ```
+  </Step>
+  
+  <Step title="Start a screen session">
+    ```bash
+    screen -S mcp-connector
+    ```
+  </Step>
+  
+  <Step title="Run MCP Connector">
+    ```bash
+    npx @typingmind/mcp@latest <auth-token>
+    ```
+  </Step>
+  
+  <Step title="Detach from the session">
+    Press `Ctrl+A`, then `D` to detach from the screen session while keeping the process running.
+  </Step>
+  
+  <Step title="Reattach to the session">
+    To view the process again:
+    
+    ```bash
+    screen -r mcp-connector
+    ```
+  </Step>
+</Steps>
+
+### Using tmux
+
+tmux is another terminal multiplexer with more advanced features:
+
+<Steps>
+  <Step title="Install tmux">
+    ```bash
+    # Ubuntu/Debian
+    sudo apt-get install tmux
+    
+    # CentOS/RHEL
+    sudo yum install tmux
+    ```
+  </Step>
+  
+  <Step title="Start a tmux session">
+    ```bash
+    tmux new -s mcp-connector
+    ```
+  </Step>
+  
+  <Step title="Run MCP Connector">
+    ```bash
+    npx @typingmind/mcp@latest <auth-token>
+    ```
+  </Step>
+  
+  <Step title="Detach from the session">
+    Press `Ctrl+B`, then `D` to detach.
+  </Step>
+  
+  <Step title="Reattach to the session">
+    ```bash
+    tmux attach -t mcp-connector
+    ```
+  </Step>
+</Steps>
+
+<Note>
+  While screen and tmux work well for simple deployments, pm2 is recommended for production use as it provides automatic restarts, log management, and monitoring capabilities.
+</Note>
+
+## Network and firewall configuration
+
+### Opening firewall ports
+
+Ensure the required ports are accessible through your firewall:
+
+<CodeGroup>
+```bash UFW (Ubuntu/Debian)
+# Allow HTTP port
+sudo ufw allow 50880/tcp
+
+# Allow HTTPS port
+sudo ufw allow 50881/tcp
+
+# Check status
+sudo ufw status
+```
+
+```bash firewalld (CentOS/RHEL)
+# Allow HTTP port
+sudo firewall-cmd --permanent --add-port=50880/tcp
+
+# Allow HTTPS port
+sudo firewall-cmd --permanent --add-port=50881/tcp
+
+# Reload firewall
+sudo firewall-cmd --reload
+```
+
+```bash iptables
+# Allow HTTP port
+sudo iptables -A INPUT -p tcp --dport 50880 -j ACCEPT
+
+# Allow HTTPS port
+sudo iptables -A INPUT -p tcp --dport 50881 -j ACCEPT
+
+# Save rules
+sudo iptables-save | sudo tee /etc/iptables/rules.v4
+```
+</CodeGroup>
+
+### Cloud provider security groups
+
+If you're using a cloud provider, configure security groups or firewall rules:
+
+- **AWS EC2**: Add inbound rules for ports 50880/50881 in your security group
+- **Google Cloud**: Create firewall rules allowing TCP traffic on ports 50880/50881
+- **Azure**: Configure Network Security Group rules for ports 50880/50881
+- **DigitalOcean**: Add inbound rules in your firewall settings
+
+### Verifying connectivity
+
+Test that your server is accessible:
+
+```bash
+# From another machine
+curl http://your-server-ip:50880/ping \
+  -H "Authorization: Bearer <auth-token>"
+
+# Expected response:
+{"status":"ok"}
+```
+
+## Environment variables reference
+
+Available environment variables for server deployment:
+
+| Variable | Description | Default | Example |
+|----------|-------------|---------|----------|
+| `MCP_AUTH_TOKEN` | Authentication token | Required | `abc123xyz` |
+| `PORT` | Server port | `50880` or `50881` | `8080` |
+| `CERTFILE` | Path to SSL certificate | None | `/etc/ssl/cert.crt` |
+| `KEYFILE` | Path to SSL private key | None | `/etc/ssl/key.key` |
+| `TIMEOUT` | Tool call timeout (ms) | `60000` | `120000` |
+
+## Monitoring and logs
+
+### Using pm2 monitoring
+
+```bash
+# View real-time logs
+pm2 logs mcp-connector --lines 100
+
+# Monitor CPU and memory usage
+pm2 monit
+
+# View process information
+pm2 show mcp-connector
+```
+
+### Using system logs
+
+If not using pm2, redirect output to log files:
+
+```bash
+# Log to file
+npx @typingmind/mcp@latest <auth-token> > /var/log/mcp-connector.log 2>&1 &
+
+# View logs
+tail -f /var/log/mcp-connector.log
+```
+
+## Troubleshooting
+
+### Port already in use
+
+If the default ports are occupied, specify a custom port:
+
+```bash
+PORT=8080 npx @typingmind/mcp@latest <auth-token>
+```
+
+### Connection refused
+
+Check that:
+1. The server is running: `pm2 status` or `screen -ls`
+2. Firewall allows the port: `sudo ufw status`
+3. The process is listening: `netstat -tlnp | grep 50880`
+
+### Permission denied for SSL certificates
+
+Ensure the user running MCP Connector has read access to certificate files:
+
+```bash
+sudo chmod 644 /path/to/certificate.crt
+sudo chmod 600 /path/to/privatekey.key
+sudo chown $USER:$USER /path/to/certificate.crt /path/to/privatekey.key
+```
+
+## Next steps
+
+After deploying to your server:
+
+1. Note your server address (e.g., `http://your-server-ip:50880`)
+2. Configure your server address in TypingMind at [www.typingmind.com/mcp](https://www.typingmind.com/mcp)
+3. Start using MCP tools from anywhere
+
+<Note>
+  For containerized deployments with better isolation and portability, consider using [Docker](/deployment/docker).
+</Note>

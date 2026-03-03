@@ -1,0 +1,267 @@
+---
+title: Environment variables
+description: Complete reference for all MCP Connector environment variables
+---
+
+MCP Connector is configured through environment variables and command-line arguments. This page documents all available environment variables.
+
+## Authentication
+
+<ParamField path="MCP_AUTH_TOKEN" type="string" required>
+  Authentication token for securing API access. Required if not provided as a command-line argument.
+  
+  The token is used for Bearer authentication on all API endpoints. See [Authentication](/configuration/authentication) for details.
+  
+  **Example:**
+  ```bash
+  MCP_AUTH_TOKEN=your-secret-token npx @typingmind/mcp@latest
+  ```
+  
+  **Source:** `bin/index.js:7`
+</ParamField>
+
+## Network configuration
+
+<ParamField path="PORT" type="number" default="50880 or 50881">
+  The port number for the server to listen on.
+  
+  If not specified, the server automatically finds an available port, preferring 50880 or 50881. Set this variable to use a specific port.
+  
+  **Example:**
+  ```bash
+  PORT=8080 npx @typingmind/mcp@latest your-token
+  ```
+  
+  **Source:** `lib/server.js:121`
+</ParamField>
+
+<ParamField path="HOSTNAME" type="string" default="0.0.0.0">
+  The hostname or IP address the server binds to.
+  
+  Use `0.0.0.0` to listen on all network interfaces, `127.0.0.1` for localhost only, or a specific IP address to bind to a particular interface.
+  
+  **Example:**
+  ```bash
+  # Listen only on localhost
+  HOSTNAME=127.0.0.1 npx @typingmind/mcp@latest your-token
+  
+  # Listen on specific IP
+  HOSTNAME=192.168.1.100 npx @typingmind/mcp@latest your-token
+  ```
+  
+  **Source:** `lib/server.js:454`
+</ParamField>
+
+## HTTPS configuration
+
+<ParamField path="CERTFILE" type="string">
+  Path to the SSL certificate file for HTTPS.
+  
+  Must be set together with `KEYFILE` to enable HTTPS. The file should be in PEM or CRT format.
+  
+  **Example:**
+  ```bash
+  CERTFILE=./certificate.crt \
+  KEYFILE=./privatekey.key \
+  npx @typingmind/mcp@latest your-token
+  ```
+  
+  **Source:** `lib/server.js:457`
+</ParamField>
+
+<ParamField path="KEYFILE" type="string">
+  Path to the SSL private key file for HTTPS.
+  
+  Must be set together with `CERTFILE` to enable HTTPS. The file should be in PEM format.
+  
+  **Example:**
+  ```bash
+  CERTFILE=./certificate.crt \
+  KEYFILE=./privatekey.key \
+  npx @typingmind/mcp@latest your-token
+  ```
+  
+  **Source:** `lib/server.js:458`
+</ParamField>
+
+<Note>
+Both `CERTFILE` and `KEYFILE` must be set for HTTPS to be enabled. If only one is provided, the server will use HTTP. See [HTTPS Configuration](/configuration/https) for details.
+</Note>
+
+## Tool execution
+
+<ParamField path="TIMEOUT" type="number" default="60000">
+  Timeout for tool calls in milliseconds.
+  
+  When MCP Connector executes a tool, it will wait up to this duration for the tool to complete. If the tool doesn't respond within the timeout, the request fails.
+  
+  **Default:** 60000 (60 seconds)
+  
+  **Example:**
+  ```bash
+  # Set 2 minute timeout
+  TIMEOUT=120000 npx @typingmind/mcp@latest your-token
+  
+  # Set 30 second timeout
+  TIMEOUT=30000 npx @typingmind/mcp@latest your-token
+  ```
+  
+  **Source:** `lib/server.js:116-118`
+</ParamField>
+
+<Info>
+Increase the timeout if you have long-running tools that need more time to complete. Decrease it if you want faster failure detection for unresponsive tools.
+</Info>
+
+## Complete configuration example
+
+Here's an example combining multiple environment variables:
+
+```bash
+# HTTPS server on custom port with extended timeout
+MCP_AUTH_TOKEN=your-secret-token \
+PORT=8443 \
+HOSTNAME=0.0.0.0 \
+CERTFILE=/etc/ssl/certs/mcp-connector.crt \
+KEYFILE=/etc/ssl/private/mcp-connector.key \
+TIMEOUT=120000 \
+npx @typingmind/mcp@latest
+```
+
+```bash
+# Local development with HTTP
+MCP_AUTH_TOKEN=dev-token \
+PORT=3000 \
+HOSTNAME=127.0.0.1 \
+TIMEOUT=30000 \
+npx @typingmind/mcp@latest
+```
+
+## Environment file (.env)
+
+For easier management, you can use a `.env` file with a tool like [dotenv](https://github.com/motdotla/dotenv):
+
+```bash
+# .env file
+MCP_AUTH_TOKEN=your-secret-token
+PORT=8443
+HOSTNAME=0.0.0.0
+CERTFILE=./certificate.crt
+KEYFILE=./privatekey.key
+TIMEOUT=120000
+```
+
+Then load it before starting:
+
+```bash
+# Using dotenv-cli
+npx dotenv-cli npx @typingmind/mcp@latest
+
+# Or export manually
+export $(cat .env | xargs)
+npx @typingmind/mcp@latest
+```
+
+<Warning>
+Never commit `.env` files containing secrets to version control. Add `.env` to your `.gitignore` file.
+</Warning>
+
+## Docker configuration
+
+When running in Docker, pass environment variables using the `-e` flag:
+
+```bash
+docker run -d \
+  -p 50880:50880 \
+  -e MCP_AUTH_TOKEN=your-token \
+  -e PORT=50880 \
+  -e HOSTNAME=0.0.0.0 \
+  -e TIMEOUT=120000 \
+  mcp-connector
+```
+
+Or use an environment file:
+
+```bash
+docker run -d \
+  -p 50880:50880 \
+  --env-file .env \
+  mcp-connector
+```
+
+## Validation and defaults
+
+### Required variables
+
+The server requires an authentication token. If neither the command-line argument nor `MCP_AUTH_TOKEN` is provided, the server exits with an error:
+
+```
+Error: Authentication token is required
+Usage: npx @typingmind/mcp <auth-token>
+       OR set MCP_AUTH_TOKEN environment variable
+```
+
+### Type conversion
+
+Numeric variables are automatically converted:
+
+- `PORT`: Converted to number, or auto-detected if not set
+- `TIMEOUT`: Parsed as integer using `parseInt()` (see `lib/server.js:117`)
+
+### Default values
+
+When variables are not set:
+
+| Variable | Default | Behavior |
+|----------|---------|----------|
+| `MCP_AUTH_TOKEN` | (none) | Server exits with error if token not provided |
+| `PORT` | Auto-detect | Uses 50880, 50881, or next available port |
+| `HOSTNAME` | `0.0.0.0` | Listens on all network interfaces |
+| `CERTFILE` | (none) | Server uses HTTP when not set |
+| `KEYFILE` | (none) | Server uses HTTP when not set |
+| `TIMEOUT` | `60000` | 60 second timeout for tool calls |
+
+## Troubleshooting
+
+### Variables not recognized
+
+If environment variables aren't being recognized:
+
+1. **Check variable names**: They are case-sensitive (must be uppercase)
+2. **Export in shell**: Use `export` to make variables available to child processes
+3. **Verify before running**: Use `echo $VARIABLE_NAME` to check values
+
+```bash
+# Wrong - variable not exported
+PORT=8080
+npx @typingmind/mcp@latest your-token
+
+# Correct - export first
+export PORT=8080
+npx @typingmind/mcp@latest your-token
+
+# Or set inline
+PORT=8080 npx @typingmind/mcp@latest your-token
+```
+
+### Invalid values
+
+If you see unexpected behavior:
+
+- **PORT**: Must be a valid port number (1-65535)
+- **TIMEOUT**: Must be a positive integer in milliseconds
+- **CERTFILE/KEYFILE**: Must be valid file paths with read permissions
+- **HOSTNAME**: Must be a valid IP address or hostname
+
+### Viewing current configuration
+
+To see what configuration the server is using, check the startup message:
+
+```bash
+✓ MCP runner server running on http://0.0.0.0:50880
+```
+
+This shows:
+- Protocol (http/https)
+- Hostname
+- Port

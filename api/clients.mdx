@@ -1,0 +1,508 @@
+---
+title: Client management
+description: Start, restart, list, and delete MCP clients
+---
+
+Manage MCP client lifecycle through these endpoints. Clients can be stdio-based (local commands) or remote HTTP/SSE connections.
+
+## Start clients
+
+```
+POST /start
+```
+
+Start one or more MCP clients using Claude Desktop configuration format. Supports both stdio and remote transports.
+
+### Authentication
+
+Requires Bearer token authentication.
+
+### Request body
+
+<ParamField body="mcpServers" type="object" required>
+  Object containing MCP server configurations, keyed by client ID
+  
+  <Expandable title="Server configuration">
+    <ParamField body="command" type="string">
+      Command to execute for stdio-based clients (mutually exclusive with `url`)
+    </ParamField>
+    
+    <ParamField body="url" type="string">
+      URL for remote HTTP/SSE clients (mutually exclusive with `command`)
+    </ParamField>
+    
+    <ParamField body="args" type="array">
+      Command-line arguments for stdio clients (optional)
+    </ParamField>
+    
+    <ParamField body="env" type="object">
+      Environment variables for stdio clients (optional)
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+### Example request
+
+<CodeGroup>
+
+```bash cURL
+curl -X POST http://localhost:50880/start \
+  -H "Authorization: Bearer YOUR_AUTH_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "mcpServers": {
+      "filesystem": {
+        "command": "npx",
+        "args": ["-y", "@modelcontextprotocol/server-filesystem", "/tmp"],
+        "env": {}
+      },
+      "github": {
+        "command": "npx",
+        "args": ["-y", "@modelcontextprotocol/server-github"],
+        "env": {
+          "GITHUB_TOKEN": "ghp_xxx"
+        }
+      },
+      "remote-server": {
+        "url": "https://example.com/mcp"
+      }
+    }
+  }'
+```
+
+```javascript JavaScript
+const response = await fetch('http://localhost:50880/start', {
+  method: 'POST',
+  headers: {
+    'Authorization': 'Bearer YOUR_AUTH_TOKEN',
+    'Content-Type': 'application/json'
+  },
+  body: JSON.stringify({
+    mcpServers: {
+      filesystem: {
+        command: 'npx',
+        args: ['-y', '@modelcontextprotocol/server-filesystem', '/tmp']
+      }
+    }
+  })
+});
+
+const data = await response.json();
+```
+
+</CodeGroup>
+
+### Response
+
+<ResponseField name="message" type="string" required>
+  Success or partial failure message
+</ResponseField>
+
+<ResponseField name="clients" type="array">
+  Array of successfully started clients (on full success)
+  
+  <Expandable title="Client object">
+    <ResponseField name="id" type="string">
+      Client identifier
+    </ResponseField>
+    
+    <ResponseField name="message" type="string">
+      Success message
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="success" type="array">
+  Array of successfully started clients (on partial failure)
+</ResponseField>
+
+<ResponseField name="errors" type="array">
+  Array of clients that failed to start (on partial failure)
+  
+  <Expandable title="Error object">
+    <ResponseField name="id" type="string">
+      Client identifier that failed
+    </ResponseField>
+    
+    <ResponseField name="error" type="string">
+      Error message
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+### Example responses
+
+```json 201 Created - All clients started
+{
+  "message": "All MCP clients started successfully",
+  "clients": [
+    {
+      "id": "filesystem",
+      "message": "MCP client started successfully"
+    },
+    {
+      "id": "github",
+      "message": "MCP client started successfully"
+    }
+  ]
+}
+```
+
+```json 400 Bad Request - Partial failure
+{
+  "message": "Some MCP clients failed to start",
+  "success": [
+    {
+      "id": "filesystem",
+      "message": "MCP client started successfully"
+    }
+  ],
+  "errors": [
+    {
+      "id": "github",
+      "error": "Failed to initialize: GITHUB_TOKEN not found"
+    }
+  ]
+}
+```
+
+### Behavior notes
+
+- If a client with the same ID already exists and configuration is unchanged, it will be skipped
+- If configuration changed, the existing client is automatically restarted with new config
+- Remote clients attempt Streamable HTTP transport first, falling back to SSE if that fails
+- Returns `201` if all clients started successfully, `400` if any failed
+
+---
+
+## Restart client
+
+```
+POST /restart/:id
+```
+
+Restart a specific MCP client using its original configuration.
+
+### Authentication
+
+Requires Bearer token authentication.
+
+### Path parameters
+
+<ParamField path="id" type="string" required>
+  Client identifier to restart
+</ParamField>
+
+### Example request
+
+<CodeGroup>
+
+```bash cURL
+curl -X POST http://localhost:50880/restart/filesystem \
+  -H "Authorization: Bearer YOUR_AUTH_TOKEN"
+```
+
+```javascript JavaScript
+const response = await fetch('http://localhost:50880/restart/filesystem', {
+  method: 'POST',
+  headers: {
+    'Authorization': 'Bearer YOUR_AUTH_TOKEN'
+  }
+});
+```
+
+</CodeGroup>
+
+### Response
+
+<ResponseField name="message" type="string" required>
+  Success message
+</ResponseField>
+
+<ResponseField name="client" type="object" required>
+  Restarted client details
+  
+  <Expandable title="Client object">
+    <ResponseField name="id" type="string">
+      Client identifier
+    </ResponseField>
+    
+    <ResponseField name="message" type="string">
+      Success message
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+### Example response
+
+```json 200 OK
+{
+  "message": "Client filesystem restarted successfully",
+  "client": {
+    "id": "filesystem",
+    "message": "MCP client started successfully"
+  }
+}
+```
+
+### Error responses
+
+```json 404 Not Found
+{
+  "error": "Client not found"
+}
+```
+
+```json 500 Internal Server Error
+{
+  "error": "Failed to restart client",
+  "details": "Connection refused"
+}
+```
+
+---
+
+## List all clients
+
+```
+GET /clients
+```
+
+Retrieve a list of all active MCP clients with their tools.
+
+### Authentication
+
+Requires Bearer token authentication.
+
+### Example request
+
+<CodeGroup>
+
+```bash cURL
+curl -X GET http://localhost:50880/clients \
+  -H "Authorization: Bearer YOUR_AUTH_TOKEN"
+```
+
+```javascript JavaScript
+const response = await fetch('http://localhost:50880/clients', {
+  headers: {
+    'Authorization': 'Bearer YOUR_AUTH_TOKEN'
+  }
+});
+
+const clients = await response.json();
+```
+
+</CodeGroup>
+
+### Response
+
+Returns an array of client objects.
+
+<ResponseField name="id" type="string" required>
+  Client identifier
+</ResponseField>
+
+<ResponseField name="command" type="string">
+  Command used to start the client (stdio clients)
+</ResponseField>
+
+<ResponseField name="args" type="array">
+  Command-line arguments (stdio clients)
+</ResponseField>
+
+<ResponseField name="createdAt" type="string" required>
+  ISO 8601 timestamp of when the client was created
+</ResponseField>
+
+<ResponseField name="tools" type="array" required>
+  Array of tool names available from this client
+</ResponseField>
+
+<ResponseField name="toolError" type="string">
+  Error message if tools couldn't be retrieved
+</ResponseField>
+
+### Example response
+
+```json 200 OK
+[
+  {
+    "id": "filesystem",
+    "command": "npx",
+    "args": ["-y", "@modelcontextprotocol/server-filesystem", "/tmp"],
+    "createdAt": "2026-03-03T10:30:00.000Z",
+    "tools": [
+      "read_file",
+      "write_file",
+      "list_directory",
+      "create_directory"
+    ]
+  },
+  {
+    "id": "github",
+    "command": "npx",
+    "args": ["-y", "@modelcontextprotocol/server-github"],
+    "createdAt": "2026-03-03T10:31:00.000Z",
+    "tools": [
+      "create_issue",
+      "list_issues",
+      "search_repositories"
+    ]
+  }
+]
+```
+
+### Error response
+
+```json 500 Internal Server Error
+{
+  "error": "Failed to retrieve clients list",
+  "details": "Error message"
+}
+```
+
+---
+
+## Get client details
+
+```
+GET /clients/:id
+```
+
+Retrieve details about a specific MCP client.
+
+### Authentication
+
+Requires Bearer token authentication.
+
+### Path parameters
+
+<ParamField path="id" type="string" required>
+  Client identifier
+</ParamField>
+
+### Example request
+
+<CodeGroup>
+
+```bash cURL
+curl -X GET http://localhost:50880/clients/filesystem \
+  -H "Authorization: Bearer YOUR_AUTH_TOKEN"
+```
+
+```javascript JavaScript
+const response = await fetch('http://localhost:50880/clients/filesystem', {
+  headers: {
+    'Authorization': 'Bearer YOUR_AUTH_TOKEN'
+  }
+});
+```
+
+</CodeGroup>
+
+### Response
+
+<ResponseField name="id" type="string" required>
+  Client identifier
+</ResponseField>
+
+<ResponseField name="command" type="string">
+  Command used to start the client
+</ResponseField>
+
+<ResponseField name="args" type="array">
+  Command-line arguments
+</ResponseField>
+
+<ResponseField name="createdAt" type="string" required>
+  ISO 8601 timestamp of when the client was created
+</ResponseField>
+
+### Example response
+
+```json 200 OK
+{
+  "id": "filesystem",
+  "command": "npx",
+  "args": ["-y", "@modelcontextprotocol/server-filesystem", "/tmp"],
+  "createdAt": "2026-03-03T10:30:00.000Z"
+}
+```
+
+### Error response
+
+```json 404 Not Found
+{
+  "error": "Client not found"
+}
+```
+
+---
+
+## Delete client
+
+```
+DELETE /clients/:id
+```
+
+Stop and remove an MCP client.
+
+### Authentication
+
+Requires Bearer token authentication.
+
+### Path parameters
+
+<ParamField path="id" type="string" required>
+  Client identifier to delete
+</ParamField>
+
+### Example request
+
+<CodeGroup>
+
+```bash cURL
+curl -X DELETE http://localhost:50880/clients/filesystem \
+  -H "Authorization: Bearer YOUR_AUTH_TOKEN"
+```
+
+```javascript JavaScript
+const response = await fetch('http://localhost:50880/clients/filesystem', {
+  method: 'DELETE',
+  headers: {
+    'Authorization': 'Bearer YOUR_AUTH_TOKEN'
+  }
+});
+```
+
+</CodeGroup>
+
+### Response
+
+<ResponseField name="message" type="string" required>
+  Success message
+</ResponseField>
+
+### Example response
+
+```json 200 OK
+{
+  "message": "Client deleted successfully"
+}
+```
+
+### Error responses
+
+```json 404 Not Found
+{
+  "error": "Client not found"
+}
+```
+
+```json 500 Internal Server Error
+{
+  "error": "Failed to delete client",
+  "details": "Error message"
+}
+```

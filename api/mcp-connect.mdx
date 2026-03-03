@@ -1,0 +1,280 @@
+---
+title: MCP Connect proxy
+description: Proxy HTTP requests to remote MCP servers with streaming support
+---
+
+## Endpoint
+
+```
+POST /mcp-connect
+```
+
+Proxy fetch requests to remote MCP servers, handling streaming responses and CORS headers. This endpoint acts as a bridge between your application and remote MCP servers.
+
+### Authentication
+
+Requires Bearer token authentication.
+
+### Request body
+
+<ParamField body="url" type="string" required>
+  Target URL to proxy the request to
+</ParamField>
+
+<ParamField body="options" type="object">
+  Fetch options to forward to the target URL
+  
+  <Expandable title="Fetch options">
+    <ParamField body="method" type="string">
+      HTTP method (GET, POST, etc.)
+    </ParamField>
+    
+    <ParamField body="headers" type="object">
+      Request headers to forward
+    </ParamField>
+    
+    <ParamField body="body" type="string | object">
+      Request body to forward
+    </ParamField>
+    
+    <ParamField body="..." type="any">
+      Any other standard fetch options
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+### Example request
+
+<CodeGroup>
+
+```bash cURL
+curl -X POST http://localhost:50880/mcp-connect \
+  -H "Authorization: Bearer YOUR_AUTH_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "url": "https://example.com/mcp/sse",
+    "options": {
+      "method": "POST",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "body": "{\"jsonrpc\":\"2.0\",\"method\":\"initialize\",\"id\":1}"
+    }
+  }'
+```
+
+```javascript JavaScript
+const response = await fetch('http://localhost:50880/mcp-connect', {
+  method: 'POST',
+  headers: {
+    'Authorization': 'Bearer YOUR_AUTH_TOKEN',
+    'Content-Type': 'application/json'
+  },
+  body: JSON.stringify({
+    url: 'https://example.com/mcp/sse',
+    options: {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        method: 'initialize',
+        id: 1
+      })
+    }
+  })
+});
+
+// Handle streaming response
+const reader = response.body.getReader();
+while (true) {
+  const { done, value } = await reader.read();
+  if (done) break;
+  console.log(new TextDecoder().decode(value));
+}
+```
+
+```python Python
+import requests
+
+response = requests.post(
+    'http://localhost:50880/mcp-connect',
+    headers={
+        'Authorization': 'Bearer YOUR_AUTH_TOKEN',
+        'Content-Type': 'application/json'
+    },
+    json={
+        'url': 'https://example.com/mcp/sse',
+        'options': {
+            'method': 'POST',
+            'headers': {
+                'Content-Type': 'application/json'
+            },
+            'body': '{"jsonrpc":"2.0","method":"initialize","id":1}'
+        }
+    },
+    stream=True
+)
+
+# Handle streaming response
+for chunk in response.iter_content(chunk_size=1024):
+    if chunk:
+        print(chunk.decode('utf-8'))
+```
+
+</CodeGroup>
+
+### Response
+
+The response is streamed directly from the target server with the following modifications:
+
+#### Status code
+
+Matches the target server's response status code.
+
+#### Headers
+
+Most headers are forwarded from the target server, with exceptions:
+
+**Filtered headers** (not forwarded):
+- `Content-Encoding` - Body may already be decompressed
+- `Content-Length` - Stream length may differ
+- `Transfer-Encoding` - Hop-by-hop header
+- `Access-Control-*` - CORS headers set by proxy instead
+
+**Added headers**:
+- `Access-Control-Expose-Headers: *` - Exposes all proxied headers to client
+
+#### Body
+
+The response body is streamed directly from the target server, preserving:
+- Server-Sent Events (SSE) streams
+- Chunked transfer encoding
+- Binary data
+- Large responses
+
+### Example response
+
+```text 200 OK
+Content-Type: text/event-stream
+Access-Control-Expose-Headers: *
+
+event: message
+data: {"jsonrpc":"2.0","result":{"capabilities":{}},"id":1}
+
+event: message  
+data: {"jsonrpc":"2.0","method":"tools/list","params":{}}
+```
+
+### Error responses
+
+```json 400 Bad Request
+{
+  "error": "URL is required"
+}
+```
+
+```json 401 Unauthorized
+{
+  "error": "Invalid authentication token"
+}
+```
+
+```json 500 Internal Server Error
+{
+  "error": "Internal server error",
+  "details": "Network error: Connection refused"
+}
+```
+
+## CORS preflight
+
+```
+OPTIONS /mcp-connect
+```
+
+Handles CORS preflight requests for the mcp-connect endpoint.
+
+### Authentication
+
+Requires Bearer token authentication.
+
+### Response
+
+Returns `204 No Content` with appropriate CORS headers set by the CORS middleware.
+
+## Use cases
+
+### Connecting to remote MCP servers
+
+The `/mcp-connect` endpoint enables client-side applications to connect to remote MCP servers that use HTTP/SSE transport:
+
+```javascript
+// Proxy SSE connection to remote MCP server
+const eventSource = new EventSource(
+  'http://localhost:50880/mcp-connect',
+  {
+    headers: {
+      'Authorization': 'Bearer YOUR_AUTH_TOKEN'
+    }
+  }
+);
+
+eventSource.onmessage = (event) => {
+  const data = JSON.parse(event.data);
+  console.log('Received:', data);
+};
+```
+
+### Bypassing CORS restrictions
+
+When connecting to remote MCP servers from browser environments, CORS policies may block direct requests. The `/mcp-connect` endpoint acts as a CORS-enabled proxy:
+
+1. Browser makes request to local MCP Connector
+2. MCP Connector proxies request to remote server
+3. Response is streamed back with proper CORS headers
+
+### Streaming large responses
+
+The endpoint efficiently handles streaming responses without buffering:
+
+```javascript
+// Stream large file from remote server
+const response = await fetch('http://localhost:50880/mcp-connect', {
+  method: 'POST',
+  headers: {
+    'Authorization': 'Bearer YOUR_AUTH_TOKEN',
+    'Content-Type': 'application/json'
+  },
+  body: JSON.stringify({
+    url: 'https://example.com/large-file.json',
+    options: { method: 'GET' }
+  })
+});
+
+const reader = response.body.getReader();
+let receivedLength = 0;
+
+while (true) {
+  const { done, value } = await reader.read();
+  if (done) break;
+  
+  receivedLength += value.length;
+  console.log(`Received ${receivedLength} bytes`);
+}
+```
+
+## Security considerations
+
+- All requests require Bearer token authentication
+- The proxy does not validate or modify request/response content
+- Consider implementing URL allowlisting for production deployments
+- Be cautious about proxying requests to untrusted servers
+
+## Implementation notes
+
+- Uses Node.js `Readable.fromWeb()` to convert Web Streams to Node.js streams
+- Automatically handles both text and binary streaming
+- Preserves streaming semantics for real-time data
+- Filters problematic headers to prevent decoding errors

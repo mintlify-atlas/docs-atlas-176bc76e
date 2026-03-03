@@ -1,0 +1,215 @@
+---
+title: HTTPS configuration
+description: Enable secure HTTPS connections with SSL/TLS certificates
+---
+
+MCP Connector supports HTTPS for secure communication. When SSL certificate files are provided, the server automatically uses HTTPS instead of HTTP.
+
+## How HTTPS works
+
+The server checks for SSL certificate files at startup (see `lib/server.js:456-478`):
+
+1. If both `CERTFILE` and `KEYFILE` environment variables are set, the server creates an HTTPS server
+2. If either variable is missing, the server falls back to HTTP
+3. Certificate files are read synchronously during server initialization
+4. The server binds to the configured port using the HTTPS protocol
+
+## Required environment variables
+
+To enable HTTPS, you must set both of these environment variables:
+
+<ParamField path="CERTFILE" type="string" required>
+  Path to your SSL certificate file (typically `.crt` or `.pem` format)
+</ParamField>
+
+<ParamField path="KEYFILE" type="string" required>
+  Path to your SSL private key file (typically `.key` or `.pem` format)
+</ParamField>
+
+<Warning>
+Both variables must be set for HTTPS to work. If only one is provided, the server will use HTTP instead.
+</Warning>
+
+## Basic setup
+
+Start the server with your certificate files:
+
+```bash
+CERTFILE=./path/to/certificate.crt \
+KEYFILE=./path/to/privatekey.key \
+npx @typingmind/mcp@latest your-auth-token
+```
+
+Combine with the `MCP_AUTH_TOKEN` environment variable:
+
+```bash
+CERTFILE=./certificate.crt \
+KEYFILE=./privatekey.key \
+MCP_AUTH_TOKEN=your-auth-token \
+npx @typingmind/mcp@latest
+```
+
+When HTTPS is enabled, the server will display:
+
+```
+✓ MCP runner server running on https://0.0.0.0:50880
+```
+
+## Certificate requirements
+
+### File format
+
+The server accepts standard SSL certificate formats:
+
+- **Certificate file**: X.509 certificate in PEM or CRT format
+- **Key file**: RSA or ECDSA private key in PEM format
+
+Both files must be readable by the Node.js process.
+
+### Certificate types
+
+You can use different types of certificates:
+
+#### Self-signed certificates
+
+For local development or testing:
+
+```bash
+# Generate a self-signed certificate
+openssl req -x509 -newkey rsa:4096 -keyout privatekey.key \
+  -out certificate.crt -days 365 -nodes \
+  -subj "/CN=localhost"
+```
+
+<Info>
+Self-signed certificates will trigger security warnings in browsers and API clients. They're suitable for development but not for production.
+</Info>
+
+#### CA-signed certificates
+
+For production deployments, use certificates from a trusted Certificate Authority:
+
+- Commercial CAs (DigiCert, GlobalSign, etc.)
+- Free CAs like [Let's Encrypt](https://letsencrypt.org/)
+- Organizational CAs for internal services
+
+### File permissions
+
+<Warning>
+Private key files should have restricted permissions to prevent unauthorized access.
+</Warning>
+
+Set appropriate permissions on your key file:
+
+```bash
+# Owner read-only
+chmod 400 privatekey.key
+
+# Or owner read/write if needed
+chmod 600 privatekey.key
+```
+
+## Docker deployment
+
+When running MCP Connector in Docker with HTTPS, mount your certificate files into the container:
+
+```bash
+docker run -d \
+  -p 50880:50880 \
+  -e CERTFILE=/certs/certificate.crt \
+  -e KEYFILE=/certs/privatekey.key \
+  -v /path/to/your/certificate.crt:/certs/certificate.crt:ro \
+  -v /path/to/your/privatekey.key:/certs/privatekey.key:ro \
+  --name mcp-connector-instance \
+  mcp-connector your-auth-token
+```
+
+Key points:
+
+- Use absolute paths inside the container (e.g., `/certs/certificate.crt`)
+- Mount files as read-only (`:ro`) for security
+- Ensure the certificate directory exists in the container
+
+## Using Let's Encrypt
+
+Let's Encrypt provides free SSL certificates with automatic renewal:
+
+```bash
+# Install certbot
+sudo apt-get install certbot
+
+# Generate certificate
+sudo certbot certonly --standalone -d your-domain.com
+
+# Certificates will be in /etc/letsencrypt/live/your-domain.com/
+CERTFILE=/etc/letsencrypt/live/your-domain.com/fullchain.pem \
+KEYFILE=/etc/letsencrypt/live/your-domain.com/privkey.pem \
+MCP_AUTH_TOKEN=your-token \
+npx @typingmind/mcp@latest
+```
+
+<Note>
+Let's Encrypt certificates require a public domain name and are valid for 90 days. Set up automatic renewal using certbot's built-in renewal system.
+</Note>
+
+## Combining with other configuration
+
+HTTPS works with all other configuration options:
+
+```bash
+# HTTPS + custom port + custom hostname + timeout
+CERTFILE=./certificate.crt \
+KEYFILE=./privatekey.key \
+PORT=8443 \
+HOSTNAME=192.168.1.100 \
+TIMEOUT=120000 \
+MCP_AUTH_TOKEN=your-token \
+npx @typingmind/mcp@latest
+```
+
+## Troubleshooting
+
+### Server fails to start
+
+If the server fails when enabling HTTPS:
+
+1. **Check file paths**: Ensure `CERTFILE` and `KEYFILE` point to valid files
+2. **Verify file permissions**: The process must have read access to both files
+3. **Validate certificate format**: Ensure files are in PEM format
+4. **Check for errors**: Look for error messages like "Error setting up HTTPS server"
+
+### Certificate/key mismatch
+
+If you see SSL errors:
+
+```bash
+# Verify the certificate and key match
+openssl x509 -noout -modulus -in certificate.crt | openssl md5
+openssl rsa -noout -modulus -in privatekey.key | openssl md5
+# The output should be identical
+```
+
+### Connection refused
+
+If clients can't connect to the HTTPS server:
+
+1. Check firewall rules allow the port
+2. Verify the hostname is accessible
+3. Ensure the certificate is valid for the domain/IP you're using
+4. Test with `curl -k https://localhost:50880/ping` (the `-k` flag ignores certificate validation)
+
+### Self-signed certificate warnings
+
+Clients will warn about self-signed certificates. To bypass (for testing only):
+
+```bash
+# curl: use -k flag
+curl -k https://localhost:50880/ping
+
+# Node.js: set environment variable
+NODE_TLS_REJECT_UNAUTHORIZED=0 node your-script.js
+```
+
+<Warning>
+Never disable certificate validation in production. Use properly signed certificates instead.
+</Warning>

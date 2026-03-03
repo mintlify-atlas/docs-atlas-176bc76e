@@ -1,0 +1,353 @@
+---
+title: Tool operations
+description: List and execute tools from MCP clients
+---
+
+Interact with MCP tools through these endpoints. Tools must be accessed via their parent client ID.
+
+## List client tools
+
+```
+GET /clients/:id/tools
+```
+
+Retrieve all available tools from a specific MCP client with their full schemas.
+
+### Authentication
+
+Requires Bearer token authentication.
+
+### Path parameters
+
+<ParamField path="id" type="string" required>
+  Client identifier
+</ParamField>
+
+### Example request
+
+<CodeGroup>
+
+```bash cURL
+curl -X GET http://localhost:50880/clients/filesystem/tools \
+  -H "Authorization: Bearer YOUR_AUTH_TOKEN"
+```
+
+```javascript JavaScript
+const response = await fetch('http://localhost:50880/clients/filesystem/tools', {
+  headers: {
+    'Authorization': 'Bearer YOUR_AUTH_TOKEN'
+  }
+});
+
+const tools = await response.json();
+```
+
+```python Python
+import requests
+
+response = requests.get(
+    'http://localhost:50880/clients/filesystem/tools',
+    headers={'Authorization': 'Bearer YOUR_AUTH_TOKEN'}
+)
+
+tools = response.json()
+```
+
+</CodeGroup>
+
+### Response
+
+Returns an array of tool objects with their complete schemas.
+
+<ResponseField name="name" type="string" required>
+  Tool identifier
+</ResponseField>
+
+<ResponseField name="description" type="string">
+  Human-readable description of what the tool does
+</ResponseField>
+
+<ResponseField name="inputSchema" type="object" required>
+  JSON Schema defining the tool's input parameters
+  
+  <Expandable title="Schema properties">
+    <ResponseField name="type" type="string">
+      Schema type (typically "object")
+    </ResponseField>
+    
+    <ResponseField name="properties" type="object">
+      Object defining each parameter with its type and description
+    </ResponseField>
+    
+    <ResponseField name="required" type="array">
+      Array of required parameter names
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+### Example response
+
+```json 200 OK
+[
+  {
+    "name": "read_file",
+    "description": "Read the contents of a file",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "Path to the file to read"
+        }
+      },
+      "required": ["path"]
+    }
+  },
+  {
+    "name": "write_file",
+    "description": "Write content to a file",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "Path to the file to write"
+        },
+        "content": {
+          "type": "string",
+          "description": "Content to write to the file"
+        }
+      },
+      "required": ["path", "content"]
+    }
+  },
+  {
+    "name": "list_directory",
+    "description": "List contents of a directory",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "Path to the directory"
+        }
+      },
+      "required": ["path"]
+    }
+  }
+]
+```
+
+### Error responses
+
+```json 404 Not Found
+{
+  "error": "Client not found"
+}
+```
+
+```json 500 Internal Server Error
+{
+  "error": "Failed to get tools",
+  "details": "Connection lost"
+}
+```
+
+---
+
+## Call a tool
+
+```
+POST /clients/:id/call_tools
+```
+
+Execute a tool from a specific MCP client with provided arguments.
+
+### Authentication
+
+Requires Bearer token authentication.
+
+### Path parameters
+
+<ParamField path="id" type="string" required>
+  Client identifier
+</ParamField>
+
+### Request body
+
+<ParamField body="name" type="string" required>
+  Name of the tool to execute
+</ParamField>
+
+<ParamField body="arguments" type="object">
+  Tool arguments as defined in the tool's inputSchema. Defaults to empty object if not provided.
+</ParamField>
+
+### Timeout
+
+Tool calls are subject to a configurable timeout:
+- **Default**: 60 seconds (60,000ms)
+- **Custom**: Set via `TIMEOUT` environment variable
+
+If execution exceeds the timeout, the request will fail.
+
+### Example request
+
+<CodeGroup>
+
+```bash cURL
+curl -X POST http://localhost:50880/clients/filesystem/call_tools \
+  -H "Authorization: Bearer YOUR_AUTH_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "read_file",
+    "arguments": {
+      "path": "/tmp/example.txt"
+    }
+  }'
+```
+
+```javascript JavaScript
+const response = await fetch('http://localhost:50880/clients/filesystem/call_tools', {
+  method: 'POST',
+  headers: {
+    'Authorization': 'Bearer YOUR_AUTH_TOKEN',
+    'Content-Type': 'application/json'
+  },
+  body: JSON.stringify({
+    name: 'read_file',
+    arguments: {
+      path: '/tmp/example.txt'
+    }
+  })
+});
+
+const result = await response.json();
+```
+
+```python Python
+import requests
+
+response = requests.post(
+    'http://localhost:50880/clients/filesystem/call_tools',
+    headers={
+        'Authorization': 'Bearer YOUR_AUTH_TOKEN',
+        'Content-Type': 'application/json'
+    },
+    json={
+        'name': 'read_file',
+        'arguments': {
+            'path': '/tmp/example.txt'
+        }
+    }
+)
+
+result = response.json()
+```
+
+</CodeGroup>
+
+### Response
+
+The response structure depends on the tool implementation. Common fields include:
+
+<ResponseField name="content" type="array">
+  Array of content objects returned by the tool
+  
+  <Expandable title="Content object">
+    <ResponseField name="type" type="string">
+      Content type (e.g., "text", "image", "resource")
+    </ResponseField>
+    
+    <ResponseField name="text" type="string">
+      Text content (when type is "text")
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="isError" type="boolean">
+  Whether the tool execution resulted in an error
+</ResponseField>
+
+### Example responses
+
+```json 200 OK - Successful execution
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "Hello, World!\nThis is the file content."
+    }
+  ],
+  "isError": false
+}
+```
+
+```json 200 OK - Tool error (non-exception)
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "Error: File not found"
+    }
+  ],
+  "isError": true
+}
+```
+
+### Error responses
+
+```json 400 Bad Request
+{
+  "error": "Tool name is required"
+}
+```
+
+```json 404 Not Found
+{
+  "error": "Client not found"
+}
+```
+
+```json 500 Internal Server Error
+{
+  "error": "Failed to call tool",
+  "details": "Tool execution timed out after 60000ms"
+}
+```
+
+```json 500 Internal Server Error
+{
+  "error": "Failed to call tool",
+  "details": "Invalid arguments: path is required"
+}
+```
+
+## Usage patterns
+
+### Discovering and calling tools
+
+1. **List available tools** to see what a client offers:
+   ```bash
+   GET /clients/filesystem/tools
+   ```
+
+2. **Review the inputSchema** to understand required parameters
+
+3. **Call the tool** with appropriate arguments:
+   ```bash
+   POST /clients/filesystem/call_tools
+   ```
+
+### Handling timeouts
+
+For long-running operations, consider:
+- Increasing the `TIMEOUT` environment variable
+- Implementing client-side timeout handling
+- Using tools designed for asynchronous operations
+
+### Error handling
+
+Always check both:
+- HTTP status code (500 indicates execution failure)
+- `isError` field in response (true indicates tool-level error)

@@ -1,0 +1,99 @@
+---
+title: Health check
+description: Verify the MCP Connector API is running and accessible
+---
+
+## Endpoint
+
+```
+GET /ping
+```
+
+Simple health check endpoint to verify the API is running and your authentication is valid.
+
+## Authentication
+
+Requires Bearer token authentication in the `Authorization` header.
+
+## Request
+
+No request parameters required.
+
+### Example request
+
+<CodeGroup>
+
+```bash cURL
+curl -X GET http://localhost:50880/ping \
+  -H "Authorization: Bearer YOUR_AUTH_TOKEN"
+```
+
+```javascript JavaScript
+const response = await fetch('http://localhost:50880/ping', {
+  method: 'GET',
+  headers: {
+    'Authorization': 'Bearer YOUR_AUTH_TOKEN'
+  }
+});
+
+const data = await response.json();
+console.log(data);
+```
+
+```python Python
+import requests
+
+response = requests.get(
+    'http://localhost:50880/ping',
+    headers={'Authorization': 'Bearer YOUR_AUTH_TOKEN'}
+)
+
+print(response.json())
+```
+
+</CodeGroup>
+
+## Response
+
+<ResponseField name="status" type="string" required>
+  Status indicator, always returns `"ok"` when successful
+</ResponseField>
+
+### Example response
+
+```json 200 OK
+{
+  "status": "ok"
+}
+```
+
+## Error responses
+
+### Unauthorized
+
+Returned when authentication fails (missing, invalid, or incorrect token).
+
+```json 401 Unauthorized
+{
+  "error": "Authorization header is required"
+}
+```
+
+```json 401 Unauthorized
+{
+  "error": "Authorization type must be Bearer"
+}
+```
+
+```json 401 Unauthorized
+{
+  "error": "Invalid authentication token"
+}
+```
+
+## Use cases
+
+- Verify the API is running before making other requests
+- Test authentication credentials
+- Health monitoring and uptime checks
+- Integration testing and CI/CD pipelines

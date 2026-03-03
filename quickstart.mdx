@@ -1,80 +1,220 @@
 ---
-title: "Quickstart"
-description: "Start building awesome documentation in minutes"
+title: Quick start
+description: Get MCP Connector running in under 5 minutes
 ---
 
-## Get started in three steps
+## Prerequisites
 
-Get your documentation site running locally and make your first customization.
+Before you begin, ensure you have:
 
-### Step 1: Set up your local environment
+- **Node.js 14.0.0 or later** installed on your system
+- **Auth token** from TypingMind (get it from [typingmind.com/mcp](https://www.typingmind.com/mcp))
+- **Port availability**: Ports 50880 or 50881 should be available (or specify a custom port)
 
-<AccordionGroup>
-  <Accordion icon="copy" title="Clone your docs locally">
-    During the onboarding process, you created a GitHub repository with your docs content if you didn't already have one. You can find a link to this repository in your [dashboard](https://dashboard.mintlify.com).
-    
-    To clone the repository locally so that you can make and preview changes to your docs, follow the [Cloning a repository](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository) guide in the GitHub docs.
-  </Accordion>
-  <Accordion icon="rectangle-terminal" title="Start the preview server">
-    1. Install the Mintlify CLI: `npm i -g mint`
-    2. Navigate to your docs directory and run: `mint dev`
-    3. Open `http://localhost:3000` to see your docs live!
-    
-    <Tip>Your preview updates automatically as you edit files.</Tip>
-  </Accordion>
-</AccordionGroup>
+<Note>
+You don't need to install anything globally. MCP Connector runs directly with `npx`.
+</Note>
 
-### Step 2: Deploy your changes
+## Installation and setup
 
-<AccordionGroup>
-  <Accordion icon="github" title="Install our GitHub app">
-    Install the Mintlify GitHub app from your [dashboard](https://dashboard.mintlify.com/settings/organization/github-app).
-    
-    Our GitHub app automatically deploys your changes to your docs site, so you don't need to manage deployments yourself.
-</Accordion>
-<Accordion icon="palette" title="Update your site name and colors">
-    For a first change, let's update the name and colors of your docs site.
+<Steps>
+  <Step title="Get your auth token">
+    Visit [typingmind.com/mcp](https://www.typingmind.com/mcp) and copy your authentication token. You'll need this to start MCP Connector.
 
-    1. Open `docs.json` in your editor.
-    2. Change the `"name"` field to your project name.
-    3. Update the `"colors"` to match your brand.
-    4. Save and see your changes instantly at `http://localhost:3000`.
+    <Warning>
+    Keep your auth token secure. Anyone with this token can access your MCP Connector instance.
+    </Warning>
+  </Step>
 
-    <Tip>Try changing the primary color to see an immediate difference!</Tip>
-  </Accordion>
-</AccordionGroup>
+  <Step title="Start MCP Connector">
+    Run MCP Connector using `npx`. Replace `your-auth-token` with your actual token:
 
-### Step 3: Go live
+    <CodeGroup>
+    ```bash Command line argument
+    npx @typingmind/mcp@latest your-auth-token
+    ```
 
-<Accordion icon="rocket" title="Publish your docs">
-  1. Commit and push your changes.
-  2. Your docs will update and be live in moments!
-</Accordion>
+    ```bash Environment variable
+    MCP_AUTH_TOKEN=your-auth-token npx @typingmind/mcp@latest
+    ```
+
+    ```bash Custom port
+    PORT=8080 npx @typingmind/mcp@latest your-auth-token
+    ```
+    </CodeGroup>
+
+    You should see output similar to:
+
+    ```bash
+    ✓ MCP runner server running on http://0.0.0.0:50880
+    Note: You must keep the server running in the background in order to use MCP in TypingMind.
+    ```
+  </Step>
+
+  <Step title="Verify the server is running">
+    Test the health check endpoint to confirm MCP Connector is running:
+
+    ```bash
+    curl -X GET http://localhost:50880/ping \
+      -H "Authorization: Bearer your-auth-token"
+    ```
+
+    You should receive:
+
+    ```json
+    {
+      "status": "ok"
+    }
+    ```
+
+    <Note>
+    If you specified a custom port, replace `50880` with your port number.
+    </Note>
+  </Step>
+
+  <Step title="Configure MCP servers">
+    Start one or more MCP servers by sending a POST request to the `/start` endpoint. Here's an example configuration:
+
+    ```bash
+    curl -X POST http://localhost:50880/start \
+      -H "Authorization: Bearer your-auth-token" \
+      -H "Content-Type: application/json" \
+      -d '{
+        "mcpServers": {
+          "filesystem": {
+            "command": "npx",
+            "args": ["-y", "@modelcontextprotocol/server-filesystem", "/tmp"],
+            "env": {}
+          }
+        }
+      }'
+    ```
+
+    You should receive a success response:
+
+    ```json
+    {
+      "message": "All MCP clients started successfully",
+      "clients": [
+        {
+          "id": "filesystem",
+          "message": "MCP client started successfully"
+        }
+      ]
+    }
+    ```
+  </Step>
+
+  <Step title="Connect to TypingMind">
+    In TypingMind:
+
+    1. Navigate to the MCP integration page at [typingmind.com/mcp](https://www.typingmind.com/mcp)
+    2. Enter your MCP Connector server address:
+       - Local: `http://localhost:50880`
+       - Remote: `http://your-server-ip:50880`
+    3. Enter your authentication token
+    4. Save the configuration
+
+    Your MCP servers are now available in TypingMind!
+  </Step>
+</Steps>
+
+## Verify everything works
+
+List all active MCP clients and their available tools:
+
+```bash
+curl -X GET http://localhost:50880/clients \
+  -H "Authorization: Bearer your-auth-token"
+```
+
+You should see a list of your running MCP servers with their tools:
+
+```json
+[
+  {
+    "id": "filesystem",
+    "command": "npx",
+    "args": ["-y", "@modelcontextprotocol/server-filesystem", "/tmp"],
+    "createdAt": "2026-03-03T10:30:00.000Z",
+    "tools": ["read_file", "write_file", "list_directory"]
+  }
+]
+```
+
+## Common configuration options
+
+### Custom timeout for tool calls
+
+Set a custom timeout (in milliseconds) for tool execution:
+
+```bash
+# Set 2 minute timeout
+TIMEOUT=120000 npx @typingmind/mcp@latest your-auth-token
+```
+
+The default timeout is 60 seconds (60000ms).
+
+### Custom hostname
+
+Bind to a specific hostname instead of the default `0.0.0.0`:
+
+```bash
+HOSTNAME=localhost npx @typingmind/mcp@latest your-auth-token
+```
+
+### HTTPS support
+
+Enable HTTPS with SSL certificates:
+
+```bash
+CERTFILE=./certificate.crt KEYFILE=./privatekey.key \
+  npx @typingmind/mcp@latest your-auth-token
+```
 
 ## Next steps
 
-Now that you have your docs running, explore these key features:
-
 <CardGroup cols={2}>
-
-<Card title="Write Content" icon="pen-to-square" href="/essentials/markdown">
-  Learn MDX syntax and start writing your documentation.
-</Card>
-
-<Card title="Customize style" icon="palette" href="/essentials/settings">
-  Make your docs match your brand perfectly.
-</Card>
-
-<Card title="Add code examples" icon="square-code" href="/essentials/code">
-  Include syntax-highlighted code blocks.
-</Card>
-
-<Card title="API documentation" icon="code" href="/api-reference/introduction">
-  Auto-generate API docs from OpenAPI specs.
-</Card>
-
+  <Card
+    title="Configuration guide"
+    icon="gear"
+    href="/configuration/authentication"
+  >
+    Learn about MCP server configuration options and environment variables
+  </Card>
+  <Card
+    title="Deployment"
+    icon="server"
+    href="/deployment/local"
+  >
+    Deploy MCP Connector to a remote server or Docker container
+  </Card>
+  <Card
+    title="API reference"
+    icon="code"
+    href="/api/overview"
+  >
+    Explore all available REST API endpoints
+  </Card>
+  <Card
+    title="Connect to TypingMind"
+    icon="plug"
+    href="/guides/connecting-to-typingmind"
+  >
+    Connect your MCP Connector to TypingMind
+  </Card>
 </CardGroup>
 
-<Note>
-  **Need help?** See our [full documentation](https://mintlify.com/docs) or join our [community](https://mintlify.com/community).
-</Note>
+## Keep the server running
+
+<Warning>
+MCP Connector must remain running for TypingMind to access your MCP servers. If you close the terminal or stop the process, TypingMind will lose connection.
+</Warning>
+
+For persistent operation, consider:
+
+- **Process managers**: Use `pm2` to keep MCP Connector running in the background
+- **Docker**: Run MCP Connector in a Docker container
+- **System services**: Set up as a systemd service on Linux
+
+See the [Deployment guide](/deployment/local) for detailed instructions.
