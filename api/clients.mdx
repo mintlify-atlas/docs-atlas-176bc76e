@@ -7,7 +7,7 @@ Manage MCP client lifecycle through these endpoints. Clients can be stdio-based 
 
 ## Start clients
 
-```
+```http
 POST /start
 ```
 
@@ -177,7 +177,7 @@ const data = await response.json();
 
 ## Restart client
 
-```
+```http
 POST /restart/:id
 ```
 
@@ -264,7 +264,7 @@ const response = await fetch('http://localhost:50880/restart/filesystem', {
 
 ## List all clients
 
-```
+```http
 GET /clients
 ```
 
@@ -366,7 +366,7 @@ Returns an array of client objects.
 
 ## Get client details
 
-```
+```http
 GET /clients/:id
 ```
 
@@ -442,7 +442,7 @@ const response = await fetch('http://localhost:50880/clients/filesystem', {
 
 ## Delete client
 
-```
+```http
 DELETE /clients/:id
 ```
 
