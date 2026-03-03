@@ -1,0 +1,83 @@
+{
+  "projectType": "cli-tool",
+  "projectName": "MCP Connector",
+  "projectDescription": "A lightweight server to run and manage multiple Model Context Protocol servers for TypingMind",
+  "theme": "aspen",
+  "primaryColor": "#6366f1",
+  "lightColor": "#818cf8",
+  "darkColor": "#4f46e5",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Getting Started",
+            "pages": [
+              "introduction",
+              "quickstart"
+            ]
+          },
+          {
+            "group": "Deployment",
+            "pages": [
+              "deployment/local",
+              "deployment/server",
+              "deployment/docker"
+            ]
+          },
+          {
+            "group": "Configuration",
+            "pages": [
+              "configuration/authentication",
+              "configuration/https",
+              "configuration/environment-variables"
+            ]
+          },
+          {
+            "group": "Guides",
+            "pages": [
+              "guides/connecting-to-typingmind",
+              "guides/managing-mcp-servers"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API Reference",
+        "groups": [
+          {
+            "group": "Endpoints",
+            "pages": [
+              "api/overview",
+              "api/health",
+              "api/clients",
+              "api/tools",
+              "api/mcp-connect"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "Run multiple MCP servers simultaneously",
+    "REST API for managing MCP clients",
+    "Support for local (stdio) and remote (HTTP/SSE) MCP servers",
+    "Bearer token authentication",
+    "HTTPS support with SSL certificates",
+    "Docker deployment support",
+    "Configurable tool call timeout"
+  ],
+  "publicApiSurface": [
+    "GET /ping",
+    "POST /start",
+    "POST /restart/:id",
+    "GET /clients",
+    "GET /clients/:id",
+    "GET /clients/:id/tools",
+    "POST /clients/:id/call_tools",
+    "DELETE /clients/:id",
+    "POST /mcp-connect"
+  ]
+}
